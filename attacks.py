@@ -40,7 +40,37 @@ class PGDAttack:
         performs random initialization and early stopping, depending on the 
         self.rand_init and self.early_stop flags.
         """
-        pass  # FILL ME
+        x_adv = x.clone().detach()
+        if self.rand_init:
+            x_adv += torch.empty_like(x).uniform_(-self.eps, self.eps)
+        x_adv.requires_grad_(True)
+
+        for _ in range(self.n):
+            pred = self.model(x_adv)
+            loss = self.loss_func(pred, y).sum()
+            grad = torch.autograd.grad(loss, x_adv)[0]
+            sign = torch.sign(grad)
+
+            with torch.no_grad():
+                if targeted:
+                    x_adv -= self.alpha * sign
+                else:
+                    x_adv += self.alpha * sign
+
+                x_adv = torch.clamp(x_adv, x - self.eps, x + self.eps)
+                x_adv = torch.clamp(x_adv, 0, 1)
+
+                if self.early_stop:
+                    scores = self.model(x_adv)
+                    _, pred = torch.max(scores, 1)
+                    check = (pred == y) if targeted else (pred != y)
+
+                    if torch.all(check):
+                        return x_adv.detach()
+
+            x_adv.requires_grad_(True)
+
+        return x_adv.detach()
 
 
 class NESBBoxPGDAttack:

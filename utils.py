@@ -70,7 +70,19 @@ def run_whitebox_attack(attack, data_loader, targeted, device, n_classes=4):
     2- True labels in case of untargeted attacks, and target labels in
        case of targeted attacks.
     """
-    pass  # FILL ME
+    x_adv_all = []
+    y_all = []
+
+    for data in data_loader:
+        x, y = data[0].to(device), data[1].to(device)
+        if targeted:
+            y = (y + torch.randint(1, n_classes, y.shape).to(device)) % n_classes
+
+        x_adv = attack.execute(x, y, targeted=targeted)
+        x_adv_all.append(x_adv)
+        y_all.append(y)
+
+    return torch.cat(x_adv_all), torch.cat(y_all)
 
 
 def run_blackbox_attack(attack, data_loader, targeted, device, n_classes=4):
@@ -94,7 +106,21 @@ def compute_attack_success(model, x_adv, y, batch_size, targeted, device):
     attacks. y contains the true labels in case of untargeted attacks,
     and the target labels in case of targeted attacks.
     """
-    pass  # FILL ME
+    correct = 0
+    total = 0
+
+    with torch.no_grad():
+        for i in range(0, len(x_adv), batch_size):
+            x_batch = x_adv[i : i + batch_size].to(device)
+            y_batch = y[i : i + batch_size].to(device)
+            score = model(x_batch)
+            _, pred = torch.max(score, 1)
+
+            check = (pred == y_batch) if targeted else (pred != y_batch)
+            correct += check.sum().item()
+            total += y_batch.shape[0]
+
+    return correct / total
 
 
 def binary(num):

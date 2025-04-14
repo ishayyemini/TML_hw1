@@ -46,7 +46,17 @@ def compute_accuracy(model, data_loader, device):
     (a number in [0, 1]) on the labeled data returned by 
     data_loader.
     """
-    pass  # FILL ME
+    correct = 0
+    total = 0
+
+    for data in data_loader:
+        x, y = data[0].to(device), data[1].to(device)
+        scores = model(x)
+        _, preds = scores.max(1)
+        correct += (preds == y).sum()
+        total += preds.shape[0]
+
+    return correct / total
 
 
 def run_whitebox_attack(attack, data_loader, targeted, device, n_classes=4):

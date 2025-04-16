@@ -51,10 +51,9 @@ def compute_accuracy(model, data_loader, device):
 
     for data in data_loader:
         x, y = data[0].to(device), data[1].to(device)
-        scores = model(x)
-        _, preds = scores.max(1)
+        _, preds = model(x).max(1)
         correct += (preds == y).sum()
-        total += preds.shape[0]
+        total += preds.size(0)
 
     return correct / total
 
@@ -78,7 +77,7 @@ def run_whitebox_attack(attack, data_loader, targeted, device, n_classes=4):
         if targeted:
             y = (y + torch.randint(1, n_classes, y.shape).to(device)) % n_classes
 
-        x_adv = attack.execute(x, y, targeted=targeted)
+        x_adv = attack.execute(x, y, targeted)
         x_adv_all.append(x_adv)
         y_all.append(y)
 

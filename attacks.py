@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class PGDAttack:
@@ -40,35 +39,39 @@ class PGDAttack:
         performs random initialization and early stopping, depending on the 
         self.rand_init and self.early_stop flags.
         """
-        x_adv = x.clone().detach()
+        x_adv = x.clone().detach().to(x.device)
         if self.rand_init:
-            x_adv += torch.empty_like(x).uniform_(-self.eps, self.eps)
-        x_adv.requires_grad_(True)
+            x_adv = x_adv + torch.zeros_like(x).uniform_(-self.eps, self.eps).to(x.device)
 
         for _ in range(self.n):
-            pred = self.model(x_adv)
-            loss = self.loss_func(pred, y).sum()
-            grad = torch.autograd.grad(loss, x_adv)[0]
-            sign = torch.sign(grad)
+            x_adv.requires_grad_(True)
+            self.model.zero_grad()
+
+            outputs = self.model(x_adv)
+            _, preds = outputs.max(1)
+
+            if self.early_stop:
+                if (targeted and torch.all(preds == y)) or ((not targeted) and torch.all(preds != y)):
+                    break
+
+            loss = self.loss_func(outputs, y)
+            for loss_i in range(loss.size(0)):
+                loss[loss_i].backward(retain_graph=True)
 
             with torch.no_grad():
-                if targeted:
-                    x_adv -= self.alpha * sign
-                else:
-                    x_adv += self.alpha * sign
-
-                x_adv = torch.clamp(x_adv, x - self.eps, x + self.eps)
-                x_adv = torch.clamp(x_adv, 0, 1)
+                grad = x_adv.grad.sign()
 
                 if self.early_stop:
-                    scores = self.model(x_adv)
-                    _, pred = torch.max(scores, 1)
-                    check = (pred == y) if targeted else (pred != y)
+                    which_update = ~(preds == y) if targeted else preds == y
+                    grad = grad * which_update.view(-1, 1, 1, 1)
 
-                    if torch.all(check):
-                        return x_adv.detach()
+                if targeted:
+                    x_adv -= self.alpha * grad
+                else:
+                    x_adv += self.alpha * grad
 
-            x_adv.requires_grad_(True)
+                x_adv = torch.clip(x_adv, x - self.eps, x + self.eps)
+                x_adv = torch.clip(x_adv, 0, 1)
 
         return x_adv.detach()
 

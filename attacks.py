@@ -48,7 +48,7 @@ class PGDAttack:
             self.model.zero_grad()
 
             outputs = self.model(x_adv)
-            _, preds = outputs.max(1)
+            preds = torch.argmax(outputs, dim=1)
 
             if self.early_stop:
                 if (targeted and torch.all(preds == y)) or ((not targeted) and torch.all(preds != y)):
@@ -151,7 +151,7 @@ class NESBBoxPGDAttack:
         with torch.no_grad():
             for _ in range(self.n):
                 outputs = self.model(x_adv)
-                _, preds = outputs.max(1)
+                preds = torch.argmax(outputs, dim=1)
 
                 if self.early_stop:
                     if (targeted and torch.all(preds == y)) or ((not targeted) and torch.all(preds != y)):
@@ -159,22 +159,23 @@ class NESBBoxPGDAttack:
 
                 new_grad = self._nes_estimate_grad(x_adv, y)
                 grad = self.momentum * grad + (1 - self.momentum) * new_grad
+                sign = torch.sign(grad)
 
                 which_update = ~(preds == y) if targeted else preds == y
                 if self.early_stop:
-                    grad = grad * which_update.view(-1, 1, 1, 1)
+                    sign = sign * which_update.view(-1, 1, 1, 1)
 
                 if targeted:
-                    x_adv -= self.alpha * grad
+                    x_adv -= self.alpha * sign
                 else:
-                    x_adv += self.alpha * grad
+                    x_adv += self.alpha * sign
 
                 x_adv = torch.clip(x_adv, x - self.eps, x + self.eps)
                 x_adv = torch.clip(x_adv, 0, 1)
 
-                num_queries += which_update
+                num_queries += which_update * 2 * self.k
 
-        return x_adv, num_queries * 2 * self.k
+        return x_adv, num_queries
 
 
 class EnsembleModel(nn.Module):

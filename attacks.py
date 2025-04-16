@@ -177,6 +177,14 @@ class NESBBoxPGDAttack:
         return x_adv, num_queries * 2 * self.k
 
 
+class EnsembleModel(nn.Module):
+    def __init__(self, models):
+        super(EnsembleModel, self).__init__()
+        self.models = nn.ModuleList(models)
+
+    def forward(self, x):
+        return sum((1 / len(self.models)) * model(x) for model in self.models)
+
 class PGDEnsembleAttack:
     """
     White-box L_inf PGD attack against an ensemble of models using the 
@@ -214,4 +222,6 @@ class PGDEnsembleAttack:
         attacks. The method returns the adversarially perturbed samples, which
         lie in the ranges [0, 1] and [x-eps, x+eps].
         """
-        pass  # FILL ME
+        model = EnsembleModel(self.models)
+        pgd = PGDAttack(model, self.eps, self.n, self.alpha, self.rand_init, self.early_stop)
+        return pgd.execute(x, y, targeted)

@@ -1,0 +1,14 @@
+Test accuracy of model 0: 0.8750
+Test accuracy of model 1: 0.8250
+Test accuracy of model 2: 0.7900
+Untargeted attacks' transferability:
+[[0.985 0.555 0.54 ]
+ [0.685 0.965 0.585]
+ [0.6   0.545 0.955]]
+Targeted attacks' transferability:
+[[0.925 0.255 0.255]
+ [0.37  0.895 0.27 ]
+ [0.325 0.235 0.84 ]]
+Ensemble attacks' transferability from models 1+2 to model 0:
+	- untargeted attack: 0.7400
+	- targeted attack: 0.5000

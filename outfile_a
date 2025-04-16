@@ -1,0 +1,16 @@
+The test accuracy of the model is: 0.8750
+White-box attack:
+	- untargeted success rate: 0.9850
+	- targeted success rate: 0.9450
+Untargeted black-box attack (momentum=0.00):
+	- success rate: 0.9300
+	- median(# queries): 3600
+Targeted black-box attack (momentum=0.00):
+	- success rate: 0.8100
+	- median(# queries): 6400
+Untargeted black-box attack (momentum=0.90):
+	- success rate: 0.9650
+	- median(# queries): 2400
+Targeted black-box attack (momentum=0.90):
+	- success rate: 0.8800
+	- median(# queries): 4000

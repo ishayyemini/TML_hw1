@@ -142,7 +142,8 @@ def binary(num):
     binary representation (in big-endian, where the string only
     contains '0' and '1' characters).
     """
-    pass  # FILL ME
+    packed = struct.pack('>f', num)
+    return ''.join(format(byte, '08b') for byte in packed)
 
 
 def float32(binary):
@@ -151,7 +152,8 @@ def float32(binary):
     binary representations of float32 numbers into float32 and returns the
     result.
     """
-    pass  # FILL ME
+    packed = int(binary, 2).to_bytes(4, byteorder='big')
+    return struct.unpack('>f', packed)[0]
 
 
 def random_bit_flip(w):
@@ -161,4 +163,8 @@ def random_bit_flip(w):
     1- The weight with the bit flipped
     2- The index of the flipped bit in {0, 1, ..., 31}
     """
-    pass  # FILL ME
+    w_bin = binary(w)
+    bf_idx = np.random.randint(0, 32)
+    flipped_w_bin = w_bin[:bf_idx] + str(1 - int(w_bin[bf_idx])) + w_bin[bf_idx + 1:]
+    flipped_w = float32(flipped_w_bin)
+    return flipped_w, bf_idx

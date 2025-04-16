@@ -114,6 +114,23 @@ class NESBBoxPGDAttack:
         self.early_stop = early_stop
         self.loss_func = nn.CrossEntropyLoss(reduction='none')
 
+    def _nes_estimate_grad(self, x, y):
+        g = torch.zeros_like(x).to(x.device)
+
+        for i in range(self.k):
+            u = torch.randn_like(x).to(x.device)
+
+            with torch.no_grad():
+                output_plus = self.model(x + self.sigma * u)
+                loss_plus = self.loss_func(output_plus, y)
+                g += loss_plus.view(-1, 1, 1, 1) * u
+
+                output_minus = self.model(x - self.sigma * u)
+                loss_minus = self.loss_func(output_minus, y)
+                g -= loss_minus.view(-1, 1, 1, 1) * u
+
+        return g / (2 * self.k * self.sigma)
+
     def execute(self, x, y, targeted=False):
         """
         Executes the attack on a batch of samples x. y contains the true labels 
@@ -124,7 +141,40 @@ class NESBBoxPGDAttack:
         2- A vector with dimensionality len(x) containing the number of queries for
             each sample in x.
         """
-        pass  # FILL ME
+        x_adv = x.clone().detach().to(x.device)
+        if self.rand_init:
+            x_adv = x_adv + torch.zeros_like(x).uniform_(-self.eps, self.eps).to(x.device)
+
+        num_queries = torch.zeros_like(y).to(x.device)
+        grad = torch.zeros_like(x).to(x.device)
+
+        with torch.no_grad():
+            for _ in range(self.n):
+                outputs = self.model(x_adv)
+                _, preds = outputs.max(1)
+
+                if self.early_stop:
+                    if (targeted and torch.all(preds == y)) or ((not targeted) and torch.all(preds != y)):
+                        break
+
+                new_grad = self._nes_estimate_grad(x_adv, y)
+                grad = self.momentum * grad + (1 - self.momentum) * new_grad
+
+                which_update = ~(preds == y) if targeted else preds == y
+                if self.early_stop:
+                    grad = grad * which_update.view(-1, 1, 1, 1)
+
+                if targeted:
+                    x_adv -= self.alpha * grad
+                else:
+                    x_adv += self.alpha * grad
+
+                x_adv = torch.clip(x_adv, x - self.eps, x + self.eps)
+                x_adv = torch.clip(x_adv, 0, 1)
+
+                num_queries += which_update
+
+        return x_adv, num_queries * 2 * self.k
 
 
 class PGDEnsembleAttack:
